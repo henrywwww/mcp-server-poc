@@ -9,20 +9,13 @@ import asyncio
 from datetime import datetime
 from typing import Dict, List, Optional
 from fastmcp import FastMCP
-from fastapi import FastAPI
-
-app = FastAPI()
 
 # 初始化 FastMCP Server
-mcp = FastMCP("Railway MCP Server")
+mcp = FastMCP("production-server")
 
 # 獲取環境變數
 PORT = 8080#int(os.getenv("PORT", 8080))
-ENVIRONMENT = os.getenv("RAILWAY_ENVIRONMENT", "development")
-
-@app.get("/status")
-def status():
-    return {"status": "ok"}
+ENVIRONMENT = "development"#os.getenv("RAILWAY_ENVIRONMENT", "development")
 
 # 基本工具函數
 @mcp.tool()
@@ -240,4 +233,9 @@ if __name__ == "__main__":
     print(f"\n🎯 Server ready! Running on port {PORT}")
     
     # 啟動 MCP Server
-    mcp.run()
+    mcp.run(
+        transport="streamable-http",
+        host="0.0.0.0",  # 允許外部訪問
+        port=8080,
+        log_level="info"
+    )
