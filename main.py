@@ -9,6 +9,9 @@ import asyncio
 from datetime import datetime
 from typing import Dict, List, Optional
 from fastmcp import FastMCP
+from fastapi import FastAPI
+
+app = FastAPI()
 
 # 初始化 FastMCP Server
 mcp = FastMCP("Railway MCP Server")
@@ -17,9 +20,9 @@ mcp = FastMCP("Railway MCP Server")
 PORT = 8080#int(os.getenv("PORT", 8080))
 ENVIRONMENT = os.getenv("RAILWAY_ENVIRONMENT", "development")
 
-@custom_route("/health", methods=["GET"])
-async def health_check(request: Request):
-    return {"status": "healthy"}
+@app.get("/status")
+def status():
+    return {"status": "ok"}
 
 # 基本工具函數
 @mcp.tool()
