@@ -1,7 +1,3 @@
 # requirements.txt
-openai
-tiktoken
-python-dotenv
-fastapi
-pydantic
-uvicorn[standard]
+fastmcp>=0.9.0
+uvicorn>=0.24.0
