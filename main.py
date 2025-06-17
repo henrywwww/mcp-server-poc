@@ -18,7 +18,7 @@ PORT = 8080#int(os.getenv("PORT", 8080))
 ENVIRONMENT = os.getenv("RAILWAY_ENVIRONMENT", "development")
 
 @custom_route("/health", methods=["GET"])
-async def health_check(request: Request):
+async def health_check():
 return {"status": "healthy"}
 
 # 基本工具函數
