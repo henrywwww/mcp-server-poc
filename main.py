@@ -14,7 +14,7 @@ from fastmcp import FastMCP
 mcp = FastMCP("Railway MCP Server")
 
 # 獲取環境變數
-PORT = int(os.getenv("PORT", 8000))
+PORT = int(os.getenv("PORT", 8080))
 ENVIRONMENT = os.getenv("RAILWAY_ENVIRONMENT", "development")
 
 # 基本工具函數
