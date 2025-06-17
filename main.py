@@ -234,7 +234,7 @@ if __name__ == "__main__":
     
     # 啟動 MCP Server
     mcp.run(
-        transport="sse",
+        transport="streamable-http",
         host="0.0.0.0",  # 允許外部訪問
         port=8080,
         log_level="info"
