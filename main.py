@@ -1,7 +1,7 @@
-# main.py
 from fastapi import FastAPI
+
 app = FastAPI()
 
 @app.get("/status")
-def check():
+def status():
     return {"status": "ok"}
