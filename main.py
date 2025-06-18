@@ -233,12 +233,12 @@ if __name__ == "__main__":
     print(f"\n🎯 Server ready! Running on port {PORT}")
     
     # 啟動 MCP Server
-    mcp.run(
-        transport="sse", host="127.0.0.1", port=8080
-    )
     # mcp.run(
-    #     transport="streamable-http",
-    #     host="0.0.0.0",  # 允許外部訪問
-    #     port=8080,
-    #     log_level="debug"
+    #     transport="sse", host="127.0.0.1", port=8080
     # )
+    mcp.run(
+        transport="streamable-http",
+        host="0.0.0.0",  # 允許外部訪問
+        port=8080,
+        log_level="debug"
+    )
