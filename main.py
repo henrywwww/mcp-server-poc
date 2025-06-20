@@ -214,6 +214,79 @@ def setup_railway_config():
     print(f"🔌 Port: {PORT}")
     print(f"⏰ Started at: {datetime.now().isoformat()}")
 
+# 假交易資料（可日後替換為資料庫）
+fake_transactions = {
+    "user123": [
+        {
+            "date": "2025-06-19 14:32",
+            "amount": -2500,
+            "target": "王小明",
+            "type": "轉帳",
+            "note": "房租"
+        },
+        {
+            "date": "2025-06-18 10:05",
+            "amount": 15000,
+            "target": "公司入帳",
+            "type": "薪資",
+            "note": "六月份薪資"
+        },
+        {
+            "date": "2025-06-16 09:21",
+            "amount": -800,
+            "target": "統一超商",
+            "type": "消費",
+            "note": "早餐"
+        }
+    ]
+}
+
+@mcp.tool()
+def get_transactions(user_id: str) -> str:
+    """查詢交易紀錄
+    
+    Args:
+        user_id: 使用者 ID
+        
+    Returns:
+        該使用者的交易紀錄清單
+    """
+    records = fake_transactions.get(user_id)
+    if not records:
+        return f"找不到使用者 {user_id} 的交易紀錄"
+
+    result = []
+    for tx in records:
+        result.append(
+            f"{tx['date']}｜{tx['type']}｜{tx['target']}｜{tx['amount']}元｜備註：{tx['note']}"
+        )
+    return "\n".join(result)
+
+# 匯率假資料
+fake_rates = {
+    "USD_TWD": 32.5,
+    "EUR_TWD": 35.8,
+    "JPY_TWD": 0.21
+}
+
+@mcp.tool()
+def get_exchange_rate(base: str = "USD", target: str = "TWD") -> str:
+    """匯率查詢
+    
+    Args:
+        base: 原始幣別
+        target: 目標幣別
+        
+    Returns:
+        匯率資訊
+    """
+    key = f"{base.upper()}_{target.upper()}"
+    rate = fake_rates.get(key)
+    if not rate:
+        return f"目前不支援 {base} 對 {target} 的匯率查詢"
+    
+    return f"📈 匯率查詢：1 {base.upper()} = {rate} {target.upper()}（假資料）"
+
 if __name__ == "__main__":
     setup_railway_config()
     
