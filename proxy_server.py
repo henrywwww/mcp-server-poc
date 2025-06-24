@@ -6,7 +6,7 @@ import json
 
 app = FastAPI()
 
-MCP_STREAM_URL = "http://localhost:8080/mcp/"  # 若兩服務都在同 Railway 項目，可設成 http://localhost:9000
+MCP_STREAM_URL = "http://localhost:8080/"  # 若兩服務都在同 Railway 項目，可設成 http://localhost:9000
 
 class RestMcpRequest(BaseModel):
     action: str
