@@ -312,6 +312,6 @@ if __name__ == "__main__":
     mcp.run(
         transport="streamable-http",
         host="0.0.0.0",  # 允許外部訪問
-        port=8080,
+        port=9000,
         log_level="debug"
     )
