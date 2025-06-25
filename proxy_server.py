@@ -23,29 +23,30 @@ async def rest_mcp(req: RestMcpRequest):
         try:
             logging.info("💬 收到來自 Flutter 的請求：%s", req)
 
+            payload = {
+                "jsonrpc": "2.0",
+                "id": "proxy",
+                "method": req.action,
+                "params": req.data
+            }
+
+            logging.info("🚀 Proxy 要送出的 payload：%s", json.dumps(payload))
+
             response = await client.post(
                 MCP_STREAM_URL,
                 headers={
                     "Accept": "application/json, text/event-stream",
                     "Content-Type": "application/json"
                 },
-                json={
-                    "jsonrpc": "2.0",
-                    "id": "proxy",
-                    "method": req.action,
-                    "params": req.data
-                }
+                json=payload
             )
-
-            logging.info("🚀 準備轉送給 MCP Server 的 payload：%s", req.action)
 
             if response.status_code != 200:
                 raise HTTPException(status_code=response.status_code, detail=response.text)
 
-            result = response.text
-            logging.info("✅ MCP Server 回應：%s", result)
+            logging.info("✅ MCP Server 回應：%s", response.text)
 
-            return json.loads(result)
+            return response.json()
 
         except Exception as e:
             logging.error("❌ 發生錯誤：%s", str(e))
