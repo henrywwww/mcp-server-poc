@@ -4,6 +4,7 @@ import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
 
 # 初始化 FastAPI 應用
 app = FastAPI()
