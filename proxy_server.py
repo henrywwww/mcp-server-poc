@@ -1,97 +1,106 @@
 
-import logging
 import json
+import logging
 import httpx
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
-from typing import Optional
+import asyncio
 
 app = FastAPI()
-MCP_STREAM_URL = "http://localhost:9000/mcp/"
-SESSION_ID: Optional[str] = None
-
 logging.basicConfig(level=logging.INFO)
+
+MCP_STREAM_URL = "http://localhost:9000/mcp/"
+SESSION_ID = None
 
 class RestMcpRequest(BaseModel):
     action: str
-    data: dict = {}
+    data: dict
+
+async def initialize_mcp() -> str:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            logging.info("⚙️  嘗試初始化 MCP server...")
+            init_response = await client.post(
+                MCP_STREAM_URL,
+                headers={
+                    "Accept": "application/json, text/event-stream",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "jsonrpc": "2.0",
+                    "id": "flutter-proxy",
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {},
+                        "clientInfo": {
+                            "name": "flutter-proxy",
+                            "version": "0.1.0"
+                        }
+                    }
+                }
+            )
+
+            session_text = ""
+            async for chunk in init_response.aiter_text():
+                session_text += chunk
+                break  # 只讀第一段初始化即可
+
+            init_data = json.loads(session_text)
+            session_id = init_data.get("result", {}).get("session", {}).get("id")
+            if not session_id:
+                raise ValueError("Missing session_id in initialize response")
+
+            logging.info("✅ MCP 初始化成功，session_id: %s", session_id)
+            return session_id
+        except Exception as e:
+            logging.warning("⚠️ MCP 初始化失敗：%s", str(e))
+            raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/rest-mcp")
 async def rest_mcp(request: Request):
     global SESSION_ID
 
-    req_json = await request.json()
-    logging.info("💬 收到來自 Flutter 的請求：%s", req_json)
+    payload = await request.json()
+    logging.info("💬 收到來自 Flutter 的請求：%s", payload)
 
     if SESSION_ID is None:
-        logging.info("⚙️  嘗試初始化 MCP server...")
-        async with httpx.AsyncClient(timeout=None) as client:
-            try:
-                init_response = await client.post(
-                    MCP_STREAM_URL,
-                    headers={
-                        "Accept": "application/json, text/event-stream",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "jsonrpc": "2.0",
-                        "id": 0,
-                        "method": "initialize",
-                        "params": {
-                            "protocolVersion": "2024-11-05",
-                            "capabilities": {},
-                            "clientInfo": {
-                                "name": "proxy-server",
-                                "version": "1.0"
-                            }
-                        }
-                    }
-                )
-                if init_response.status_code == 200:
-                    try:
-                        init_json = init_response.json()
-                        if "result" in init_json and "session_id" in init_json["result"]:
-                            SESSION_ID = init_json["result"]["session_id"]
-                            logging.info("✅ MCP 初始化成功，取得 session_id: %s", SESSION_ID)
-                        else:
-                            logging.warning("⚠️ MCP 初始化回應中沒有 session_id")
-                    except Exception as e:
-                        logging.warning("⚠️ MCP 初始化回應 JSON 解析錯誤：%s", e)
-                else:
-                    logging.warning("⚠️ MCP 回應異常（%d）：%s", init_response.status_code, init_response.text)
-            except Exception as e:
-                logging.error("❌ MCP 初始化失敗：%s", e)
+        try:
+            SESSION_ID = await initialize_mcp()
+        except HTTPException as e:
+            raise e
 
-    action = req_json.get("action")
-    data = req_json.get("data", {})
+    action = payload.get("action")
+    data = payload.get("data", {})
+    data["session_id"] = SESSION_ID  # 自動補上 session_id
 
-    if SESSION_ID and "session_id" not in data:
-        data["session_id"] = SESSION_ID
-
-    payload = {
+    request_payload = {
         "jsonrpc": "2.0",
         "id": "proxy",
         "method": action,
         "params": data
     }
 
-    logging.info("🚀 Proxy 要送出的 payload：%s", json.dumps(payload, ensure_ascii=False))
+    logging.info("🚀 Proxy 要送出的 payload：%s", json.dumps(request_payload))
 
-    async with httpx.AsyncClient(timeout=None) as client:
-        try:
-            response = await client.post(
-                MCP_STREAM_URL,
-                headers={
-                    "Accept": "application/json, text/event-stream",
-                    "Content-Type": "application/json"
-                },
-                json=payload
-            )
-            if response.status_code == 200:
-                return response.json()
-            else:
-                logging.warning("⚠️ MCP 回應異常（%d）：%s", response.status_code, response.text)
-                raise HTTPException(status_code=response.status_code, detail=response.text)
-        except Exception as e:
-            logging.error("❌ 發生錯誤：%s", str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.post(
+            MCP_STREAM_URL,
+            headers={
+                "Accept": "application/json, text/event-stream",
+                "Content-Type": "application/json"
+            },
+            json=request_payload
+        )
+
+        if response.status_code != 200:
+            logging.warning("⚠️ MCP 回應異常（%s）：%s", response.status_code, response.text)
+            raise HTTPException(status_code=500, detail=f"{response.status_code}: {response.text}")
+
+        result = ""
+        async for chunk in response.aiter_text():
+            result += chunk
+            break
+
+        logging.info("✅ MCP 回應：%s", result)
+        return json.loads(result)
