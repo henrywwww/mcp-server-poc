@@ -57,53 +57,53 @@ async def initialize_mcp():
 @app.post("/rest-mcp")
 async def rest_mcp(request: Request):
     global session_id_cache
-    
-    req_json = await request.json()
-    logging.info(f"\n💬 收到來自 Flutter 的請求：{req_json}")
+    try:
+        req_json = await request.json()
+        logging.info(f"\n💬 收到來自 Flutter 的請求：{req_json}")
 
-    # 若沒有初始化過 MCP，就執行一次初始化
-    if not session_id_cache:
-        try:
-            await initialize_mcp()
-        except Exception as e:
-            logging.error(f"❌ MCP 初始化失敗：{str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
+        # 若沒有初始化過 MCP，就執行一次初始化
+        if not session_id_cache:
+            try:
+                await initialize_mcp()
+            except Exception as e:
+                logging.error(f"❌ MCP 初始化失敗：{str(e)}")
+                raise HTTPException(status_code=500, detail=str(e))
 
-    method = req_json.get("action")
-    params = req_json.get("data", {})
+        method = req_json.get("action")
+        params = req_json.get("data", {})
 
-    # 若缺少 session_id，就自動補上
-    #if "session_id" not in params:
-    #    params["session_id"] = session_id_cache
+        # 若缺少 session_id，就自動補上
+        #if "session_id" not in params:
+        #    params["session_id"] = session_id_cache
 
-    payload = {
-        "jsonrpc": "2.0",
-        "id": "flutter-proxy",
-        "method": "hello_world",
-        "params": {
-            "name": "henry"
+        payload = {
+            "jsonrpc": "2.0",
+            "id": "flutter-proxy",
+            "method": "hello_world",
+            "params": {
+                "name": "henry"
+            }
         }
-    }
 
-    logging.info(f"\n🚀 Proxy 要送出的 payload：{json.dumps(payload)}")
+        logging.info(f"\n🚀 Proxy 要送出的 payload：{json.dumps(payload)}")
 
-    async with httpx.AsyncClient(timeout=10) as client:
-        response = await client.post(MCP_URL, headers=headers, json=payload)
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(MCP_URL, headers=headers, json=payload)
 
-        if response.status_code != 200:
-            logging.warning(f"⚠️ MCP 回應異常（{response.status_code}）：{response.text}")
-            raise HTTPException(status_code=500, detail=response.text)
+            if response.status_code != 200:
+                logging.warning(f"⚠️ MCP 回應異常（{response.status_code}）：{response.text}")
+                raise HTTPException(status_code=500, detail=response.text)
 
-        logging.warning(f"⚠️ MCP 回應成功（{response.status_code}）：{response.text}")
+            logging.warning(f"⚠️ MCP 回應成功（{response.status_code}）：{response.text}")
 
-        # Extract and parse SSE-style data field
-        match = re.search(r"^data:\s*(\{.*\})", response.text, re.MULTILINE)
-        if match:
-            mcp_json = json.loads(match.group(1))
-            return JSONResponse(content=mcp_json)
-        else:
-            logging.error("❌ 回應解析失敗，找不到 data 區段")
-            raise HTTPException(status_code=500, detail="Invalid MCP response format")
+            # Extract and parse SSE-style data field
+            match = re.search(r"^data:\s*(\{.*\})", response.text, re.MULTILINE)
+            if match:
+                mcp_json = json.loads(match.group(1))
+                return JSONResponse(content=mcp_json)
+            else:
+                logging.error("❌ 回應解析失敗，找不到 data 區段")
+                raise HTTPException(status_code=500, detail="Invalid MCP response format")
 
     except Exception as e:
         logging.error(f"❌ 發生錯誤：{str(e)}")
