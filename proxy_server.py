@@ -3,102 +3,82 @@ import json
 import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from fastapi.middleware.cors import CORSMiddleware
-import asyncio
 
-# 初始化 FastAPI 應用
 app = FastAPI()
-
-# MCP server 的 streamable-http 位置
-MCP_STREAM_URL = "http://localhost:9000/mcp/"
-
-# 啟用 CORS（方便 Flutter App 呼叫）
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # 生產環境請改成指定 origin
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# 記錄格式
 logging.basicConfig(level=logging.INFO)
 
-# Flutter 來的資料格式
+# MCP server 設定
+MCP_STREAM_URL = "http://localhost:9000/mcp/"
+mcp_initialized = False
+
 class RestMcpRequest(BaseModel):
     action: str
     data: dict
 
-@app.on_event("startup")
-async def startup_event():
-    await initialize_mcp()
-
-async def initialize_mcp():
-    async with httpx.AsyncClient(timeout=None) as client:
-        for attempt in range(1, MAX_RETRIES + 1):
-            try:
-                logging.info(f"⚙️  嘗試初始化 MCP server...（第 {attempt} 次）")
-
-                response = await client.post(
-                    MCP_STREAM_URL,
-                    headers={
-                        "Accept": "application/json, text/event-stream",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "jsonrpc": "2.0",
-                        "id": 0,
-                        "method": "initialize",
-                        "params": {
-                            "protocolVersion": "2024-11-05",
-                            "capabilities": {},
-                            "clientInfo": {
-                                "name": "flutter-proxy",
-                                "version": "0.1.0"
-                            }
-                        }
-                    }
-                )
-
-                if response.status_code == 200:
-                    logging.info("✅ MCP 初始化成功")
-                    return
-                else:
-                    logging.warning(f"⚠️ MCP 回應異常（{response.status_code}）：{response.text}")
-
-            except Exception as e:
-                logging.warning(f"❌ MCP 初始化失敗：{e}")
-
-            await asyncio.sleep(RETRY_DELAY)
-
-        logging.error("💥 無法初始化 MCP server（多次重試失敗）")
-
-# Flutter 呼叫轉發端點
 @app.post("/rest-mcp")
 async def rest_mcp(req: RestMcpRequest):
-    logging.info("💬 收到來自 Flutter 的請求：%s", req)
+    global mcp_initialized
 
-    payload = {
-        "jsonrpc": "2.0",
-        "id": "proxy",
-        "method": req.action,
-        "params": req.data
-    }
-
-    logging.info("🚀 Proxy 要送出的 payload：%s", json.dumps(payload, ensure_ascii=False))
-
-    async with httpx.AsyncClient(timeout=20) as client:
+    async with httpx.AsyncClient(timeout=None) as client:
         try:
+            # ✅ 若尚未初始化，先送一次 initialize
+            if not mcp_initialized:
+                logging.info("⚙️  嘗試初始化 MCP server...")
+
+                init_payload = {
+                    "jsonrpc": "2.0",
+                    "id": 0,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {},
+                        "clientInfo": {
+                            "name": "flutter-proxy",
+                            "version": "0.1.0"
+                        }
+                    }
+                }
+
+                init_headers = {
+                    "Accept": "application/json, text/event-stream",
+                    "Content-Type": "application/json"
+                }
+
+                init_response = await client.post(
+                    MCP_STREAM_URL,
+                    headers=init_headers,
+                    json=init_payload
+                )
+
+                if init_response.status_code == 200:
+                    logging.info("✅ MCP 初始化成功")
+                    mcp_initialized = True
+                else:
+                    logging.warning(f"⚠️ MCP 初始化失敗（{init_response.status_code}）：{init_response.text}")
+                    raise HTTPException(status_code=init_response.status_code, detail=init_response.text)
+
+            # ✅ 轉送實際的 action 請求
+            payload = {
+                "jsonrpc": "2.0",
+                "id": "proxy",
+                "method": req.action,
+                "params": req.data
+            }
+
+            logging.info("💬 收到來自 Flutter 的請求：%s", req.dict())
+            logging.info("🚀 Proxy 要送出的 payload：%s", json.dumps(payload, ensure_ascii=False))
+
             response = await client.post(
                 MCP_STREAM_URL,
                 headers={
-                    "Content-Type": "application/json",
-                    "Accept": "application/json, text/event-stream"
+                    "Accept": "application/json, text/event-stream",
+                    "Content-Type": "application/json"
                 },
                 json=payload
             )
 
             if response.status_code != 200:
+                logging.warning("⚠️ MCP 回應異常（%s）：%s", response.status_code, response.text)
                 raise HTTPException(status_code=response.status_code, detail=response.text)
 
             logging.info("✅ MCP Server 回應：%s", response.text)
