@@ -100,6 +100,7 @@ async def rest_mcp(request: Request):
             raise HTTPException(status_code=500, detail=response.text)
 
         try:
+            logging.warning(f"⚠️ MCP 回應成功（{response.status_code}）：{response.text}")
             return JSONResponse(content=response.json())
         except Exception as e:
             logging.error(f"❌ 回應解析失敗：{str(e)}")
