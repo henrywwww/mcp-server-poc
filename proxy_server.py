@@ -78,9 +78,12 @@ async def rest_mcp(request: Request):
 
     payload = {
         "jsonrpc": "2.0",
-        "id": "proxy",
-        "method": method,
-        "params": params
+        "id": "flutter-proxy",
+        "method": "tools/call",
+        "params": {
+            "name": req.action,  # tool 名稱
+            "input": req.data    # tool 的輸入參數
+        }
     }
 
     logging.info(f"\n🚀 Proxy 要送出的 payload：{json.dumps(payload)}")
