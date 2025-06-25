@@ -46,6 +46,10 @@ async def initialize_mcp() -> str:
             mcp_cookies = init_response.cookies
 
             logging.info("✅ MCP cookies: %s", mcp_cookies)
+
+            logging.info("🧾 MCP Init Response Headers:")
+            for key, value in init_response.headers.items():
+                logging.info("   %s: %s", key, value)
             async for chunk in init_response.aiter_text():
                 session_text += chunk
                 logging.info("✅ MCP 初始化成功，session_text: %s", session_text)
