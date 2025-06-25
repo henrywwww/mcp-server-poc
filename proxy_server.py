@@ -81,8 +81,8 @@ async def rest_mcp(request: Request):
         "id": "flutter-proxy",
         "method": "tools/call",
         "params": {
-            "name": req.action,  # tool 名稱
-            "input": req.data    # tool 的輸入參數
+            "name": method,  # tool 名稱
+            "input": params    # tool 的輸入參數
         }
     }
 
