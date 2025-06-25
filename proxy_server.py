@@ -86,7 +86,11 @@ async def rest_mcp(request: Request):
     logging.info(f"\n🚀 Proxy 要送出的 payload：{json.dumps(payload)}")
 
     async with httpx.AsyncClient(timeout=None) as client:
-        response = await client.post(MCP_URL, headers=MCP_HEADERS, json=payload)
+        headers = MCP_HEADERS.copy()
+        if session_id_cache:
+            headers["mcp-session-id"] = session_id_cache  # 🔑 加入 session id
+
+        response = await client.post(MCP_URL, headers=headers, json=payload)
 
         if response.status_code != 200:
             logging.warning(f"⚠️ MCP 回應異常（{response.status_code}）：{response.text}")
