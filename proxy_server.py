@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 
 MCP_STREAM_URL = "http://localhost:9000/mcp/"
 SESSION_ID = None
-
+mcp_cookies = None
 class RestMcpRequest(BaseModel):
     action: str
     data: dict
@@ -40,19 +40,23 @@ async def initialize_mcp() -> str:
                     }
                 }
             )
-
+            
+            
             session_text = ""
+            mcp_cookies = init_response.cookies
+
+            logging.info("✅ MCP cookies: %s", mcp_cookies)
             async for chunk in init_response.aiter_text():
                 session_text += chunk
+                logging.info("✅ MCP 初始化成功，session_text: %s", session_text)
+                
                 break  # 只讀第一段初始化即可
 
-            init_data = json.loads(session_text)
-            session_id = init_data.get("result", {}).get("session", {}).get("id")
-            if not session_id:
-                raise ValueError("Missing session_id in initialize response")
+            
+            
 
-            logging.info("✅ MCP 初始化成功，session_id: %s", session_id)
-            return session_id
+            
+            return ""
         except Exception as e:
             logging.warning("⚠️ MCP 初始化失敗：%s", str(e))
             raise HTTPException(status_code=500, detail=str(e))
@@ -90,6 +94,7 @@ async def rest_mcp(request: Request):
                 "Accept": "application/json, text/event-stream",
                 "Content-Type": "application/json"
             },
+            cookies=mcp_cookies,
             json=request_payload
         )
 
