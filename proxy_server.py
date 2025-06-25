@@ -17,19 +17,49 @@ class RestMcpRequest(BaseModel):
     data: dict
 
 
+initialized = False  # 記錄是否已初始化
+
 @app.post("/rest-mcp")
 async def rest_mcp(req: RestMcpRequest):
+    global initialized
     async with httpx.AsyncClient(timeout=None) as client:
         try:
-            logging.info("💬 收到來自 Flutter 的請求：%s", req)
+            # 第一次請求前初始化 MCP Server
+            if not initialized:
+                init_payload = {
+                    "jsonrpc": "2.0",
+                    "id": 0,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {},
+                        "clientInfo": {
+                            "name": "flutter-proxy",
+                            "version": "1.0.0"
+                        }
+                    }
+                }
+                logging.info("⚙️  初始化 MCP server...")
+                init_response = await client.post(
+                    MCP_STREAM_URL,
+                    headers={
+                        "Accept": "application/json, text/event-stream",
+                        "Content-Type": "application/json"
+                    },
+                    json=init_payload
+                )
+                if init_response.status_code != 200:
+                    raise HTTPException(status_code=init_response.status_code, detail=init_response.text)
+                initialized = True
+                logging.info("✅ MCP 初始化成功")
 
+            # 接著處理正常的業務請求
             payload = {
                 "jsonrpc": "2.0",
                 "id": "proxy",
                 "method": req.action,
                 "params": req.data
             }
-
             logging.info("🚀 Proxy 要送出的 payload：%s", json.dumps(payload))
 
             response = await client.post(
