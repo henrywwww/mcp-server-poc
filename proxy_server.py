@@ -52,5 +52,5 @@ async def rest_mcp(req: RestMcpRequest):
             return json.loads(result)
 
         except Exception as e:
-             logging.error("❌ 發生錯誤：%s", str(e))
+            logging.error("❌ 發生錯誤：%s", str(e))
             raise HTTPException(status_code=500, detail=str(e))
