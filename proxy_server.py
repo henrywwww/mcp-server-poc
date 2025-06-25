@@ -73,35 +73,38 @@ async def rest_mcp(request: Request):
     params = req_json.get("data", {})
 
     # 若缺少 session_id，就自動補上
-    if "session_id" not in params:
-        params["session_id"] = session_id_cache
+    #if "session_id" not in params:
+    #    params["session_id"] = session_id_cache
 
     payload = {
         "jsonrpc": "2.0",
         "id": "flutter-proxy",
-        "method": "tools/call",
+        "method": "hello_world",
         "params": {
-            "name": "hello_world",  # tool 名稱
-            "input": params    # tool 的輸入參數
+            "name": "henry"
         }
     }
 
     logging.info(f"\n🚀 Proxy 要送出的 payload：{json.dumps(payload)}")
 
-    async with httpx.AsyncClient(timeout=None) as client:
-        headers = MCP_HEADERS.copy()
-        if session_id_cache:
-            headers["mcp-session-id"] = session_id_cache  # 🔑 加入 session id
-
+     async with httpx.AsyncClient(timeout=10) as client:
         response = await client.post(MCP_URL, headers=headers, json=payload)
 
         if response.status_code != 200:
             logging.warning(f"⚠️ MCP 回應異常（{response.status_code}）：{response.text}")
             raise HTTPException(status_code=500, detail=response.text)
 
-        try:
-            logging.warning(f"⚠️ MCP 回應成功（{response.status_code}）：{response.text}")
-            return JSONResponse(content=response.json())
-        except Exception as e:
-            logging.error(f"❌ 回應解析失敗：{str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
+        logging.warning(f"⚠️ MCP 回應成功（{response.status_code}）：{response.text}")
+
+        # Extract and parse SSE-style data field
+        match = re.search(r"^data:\s*(\{.*\})", response.text, re.MULTILINE)
+        if match:
+            mcp_json = json.loads(match.group(1))
+            return JSONResponse(content=mcp_json)
+        else:
+            logging.error("❌ 回應解析失敗，找不到 data 區段")
+            raise HTTPException(status_code=500, detail="Invalid MCP response format")
+
+    except Exception as e:
+        logging.error(f"❌ 發生錯誤：{str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
