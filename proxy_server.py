@@ -78,8 +78,8 @@ async def rest_mcp(request: Request):
         "id": "flutter-proxy",
         "method": "tools/call",
         "params": {
-            "name": action,
-            "arguments": "Henry"
+            "name": "hello_world",
+            "arguments": {"data":"Henry"}
         }
     }
 
