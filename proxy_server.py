@@ -7,7 +7,7 @@ import logging
 
 app = FastAPI()
 
-MCP_STREAM_URL = "http://localhost:9000/"  # 若兩服務都在同 Railway 項目，可設成 http://localhost:9000
+MCP_STREAM_URL = "http://localhost:9000/mcp/"  # 若兩服務都在同 Railway 項目，可設成 http://localhost:9000
 
 # 設定 log 格式
 logging.basicConfig(level=logging.INFO)
