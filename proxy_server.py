@@ -87,7 +87,7 @@ async def rest_mcp(request: Request):
 
     logging.info(f"\n🚀 Proxy 要送出的 payload：{json.dumps(payload)}")
 
-     async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(timeout=10) as client:
         response = await client.post(MCP_URL, headers=headers, json=payload)
 
         if response.status_code != 200:
