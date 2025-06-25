@@ -16,13 +16,13 @@ class RestMcpRequest(BaseModel):
     action: str
     data: dict
 
+
 @app.post("/rest-mcp")
 async def rest_mcp(req: RestMcpRequest):
     async with httpx.AsyncClient(timeout=None) as client:
         try:
-            # 取得 JSON 資料
-            data = await req.json()
-            logging.info("💬 收到來自 Flutter 的請求：%s", data)
+            logging.info("💬 收到來自 Flutter 的請求：%s", req)
+
             response = await client.post(
                 MCP_STREAM_URL,
                 headers={
@@ -42,13 +42,9 @@ async def rest_mcp(req: RestMcpRequest):
             if response.status_code != 200:
                 raise HTTPException(status_code=response.status_code, detail=response.text)
 
-            # result = ""
-            # async for chunk in response.aiter_text():
-            #     result += chunk
-            # 印出 MCP Server 的回應
-            logging.info("✅ MCP Server 回應：%s", response.text)
-
             result = response.text
+            logging.info("✅ MCP Server 回應：%s", result)
+
             return json.loads(result)
 
         except Exception as e:
