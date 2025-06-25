@@ -1,115 +1,99 @@
-
 import json
 import logging
 import httpx
-from fastapi import FastAPI, HTTPException, Request
-from pydantic import BaseModel
-import asyncio
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse
 
 app = FastAPI()
+
+MCP_URL = "http://localhost:9000/mcp/"
+MCP_SESSION_HEADER = "mcp-session-id"
+MCP_HEADERS = {
+    "Accept": "application/json, text/event-stream",
+    "Content-Type": "application/json"
+}
+
+session_id_cache = None  # 存起初始化後的 session id
+
 logging.basicConfig(level=logging.INFO)
 
-MCP_STREAM_URL = "http://localhost:9000/mcp/"
-SESSION_ID = None
-mcp_cookies = None
-class RestMcpRequest(BaseModel):
-    action: str
-    data: dict
+async def initialize_mcp():
+    global session_id_cache
 
-async def initialize_mcp() -> str:
+    logging.info("\n⚙️  嘗試初始化 MCP server...")
+
+    payload = {
+        "jsonrpc": "2.0",
+        "id": "flutter-proxy",
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {
+                "name": "flutter-proxy",
+                "version": "0.1"
+            }
+        }
+    }
+
     async with httpx.AsyncClient(timeout=10.0) as client:
-        try:
-            logging.info("⚙️  嘗試初始化 MCP server...")
-            init_response = await client.post(
-                MCP_STREAM_URL,
-                headers={
-                    "Accept": "application/json, text/event-stream",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "jsonrpc": "2.0",
-                    "id": "flutter-proxy",
-                    "method": "initialize",
-                    "params": {
-                        "protocolVersion": "2024-11-05",
-                        "capabilities": {},
-                        "clientInfo": {
-                            "name": "flutter-proxy",
-                            "version": "0.1.0"
-                        }
-                    }
-                }
-            )
-            
-            
-            session_text = ""
-            mcp_cookies = init_response.cookies
+        response = await client.post(MCP_URL, headers=MCP_HEADERS, json=payload)
 
-            logging.info("✅ MCP cookies: %s", mcp_cookies)
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail="初始化失敗")
 
-            logging.info("🧾 MCP Init Response Headers:")
-            for key, value in init_response.headers.items():
-                logging.info("   %s: %s", key, value)
-            async for chunk in init_response.aiter_text():
-                session_text += chunk
-                logging.info("✅ MCP 初始化成功，session_text: %s", session_text)
-                
-                break  # 只讀第一段初始化即可
+        # 印出 headers
+        logging.info("\nMCP Init Response Headers:")
+        for key, value in response.headers.items():
+            logging.info(f"   {key}: {value}")
 
-            
-            
+        session_id = response.headers.get(MCP_SESSION_HEADER)
+        if not session_id:
+            raise HTTPException(status_code=500, detail="找不到 mcp-session-id")
 
-            
-            return ""
-        except Exception as e:
-            logging.warning("⚠️ MCP 初始化失敗：%s", str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        session_id_cache = session_id
+        logging.info(f"\n✅ MCP session id: {session_id_cache}")
 
 @app.post("/rest-mcp")
 async def rest_mcp(request: Request):
-    global SESSION_ID
+    global session_id_cache
+    
+    req_json = await request.json()
+    logging.info(f"\n💬 收到來自 Flutter 的請求：{req_json}")
 
-    payload = await request.json()
-    logging.info("💬 收到來自 Flutter 的請求：%s", payload)
-
-    if SESSION_ID is None:
+    # 若沒有初始化過 MCP，就執行一次初始化
+    if not session_id_cache:
         try:
-            SESSION_ID = await initialize_mcp()
-        except HTTPException as e:
-            raise e
+            await initialize_mcp()
+        except Exception as e:
+            logging.error(f"❌ MCP 初始化失敗：{str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
 
-    action = payload.get("action")
-    data = payload.get("data", {})
-    data["session_id"] = SESSION_ID  # 自動補上 session_id
+    method = req_json.get("action")
+    params = req_json.get("data", {})
 
-    request_payload = {
+    # 若缺少 session_id，就自動補上
+    if "session_id" not in params:
+        params["session_id"] = session_id_cache
+
+    payload = {
         "jsonrpc": "2.0",
         "id": "proxy",
-        "method": action,
-        "params": data
+        "method": method,
+        "params": params
     }
 
-    logging.info("🚀 Proxy 要送出的 payload：%s", json.dumps(request_payload))
+    logging.info(f"\n🚀 Proxy 要送出的 payload：{json.dumps(payload)}")
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        response = await client.post(
-            MCP_STREAM_URL,
-            headers={
-                "Accept": "application/json, text/event-stream",
-                "Content-Type": "application/json"
-            },
-            cookies=mcp_cookies,
-            json=request_payload
-        )
+    async with httpx.AsyncClient(timeout=None) as client:
+        response = await client.post(MCP_URL, headers=MCP_HEADERS, json=payload)
 
         if response.status_code != 200:
-            logging.warning("⚠️ MCP 回應異常（%s）：%s", response.status_code, response.text)
-            raise HTTPException(status_code=500, detail=f"{response.status_code}: {response.text}")
+            logging.warning(f"⚠️ MCP 回應異常（{response.status_code}）：{response.text}")
+            raise HTTPException(status_code=500, detail=response.text)
 
-        result = ""
-        async for chunk in response.aiter_text():
-            result += chunk
-            break
-
-        logging.info("✅ MCP 回應：%s", result)
-        return json.loads(result)
+        try:
+            return JSONResponse(content=response.json())
+        except Exception as e:
+            logging.error(f"❌ 回應解析失敗：{str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
