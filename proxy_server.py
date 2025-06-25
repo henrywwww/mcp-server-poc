@@ -79,7 +79,7 @@ async def rest_mcp(request: Request):
         "method": "tools/call",
         "params": {
             "name": action,
-            "arguments": data
+            "arguments": {"name":"Henry"}
         }
     }
 
