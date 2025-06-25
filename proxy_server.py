@@ -84,7 +84,9 @@ async def rest_mcp(request: Request):
                 "name": "henry"
             }
         }
-
+        headers = MCP_HEADERS.copy()
+        if session_id_cache:
+            headers["mcp-session-id"] = session_id_cache
         logging.info(f"\n🚀 Proxy 要送出的 payload：{json.dumps(payload)}")
 
         async with httpx.AsyncClient(timeout=10) as client:
