@@ -28,34 +28,43 @@ class RestMcpRequest(BaseModel):
     action: str
     data: dict
 
-# 啟動時自動初始化 MCP Server
 @app.on_event("startup")
-async def initialize_mcp():
-    init_payload = {
-        "jsonrpc": "2.0",
-        "id": 0,
-        "method": "initialize",
-        "params": {
-            "protocolVersion": "2024-11-05",
-            "capabilities": {},
-            "clientInfo": {
-                "name": "flutter-proxy",
-                "version": "0.1.0"
-            }
-        }
-    }
+async def startup_event():
+    await initialize_mcp()
 
-    async with httpx.AsyncClient(timeout=10) as client:
+async def initialize_mcp():
+    MAX_RETRIES = 10
+    RETRY_DELAY = 1  # 秒
+
+    for attempt in range(MAX_RETRIES):
         try:
-            logging.info("⚙️  初始化 MCP server...")
-            resp = await client.post(
-                MCP_STREAM_URL,
-                headers={"Content-Type": "application/json"},
-                json=init_payload
-            )
-            logging.info(f"✅ MCP 初始化成功：{resp.status_code} - {resp.text}")
+            logging.info("⚙️  嘗試初始化 MCP server...（第 %d 次）", attempt + 1)
+            async with httpx.AsyncClient(timeout=10) as client:
+                init_payload = {
+                    "jsonrpc": "2.0",
+                    "id": 0,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {},
+                        "clientInfo": {
+                            "name": "proxy-server",
+                            "version": "0.1.0"
+                        }
+                    }
+                }
+                response = await client.post(MCP_STREAM_URL, json=init_payload)
+                if response.status_code == 200:
+                    logging.info("✅ MCP 初始化成功")
+                    return
+                else:
+                    logging.warning("⚠️ MCP 回應異常（%d）：%s", response.status_code, response.text)
         except Exception as e:
-            logging.error(f"❌ MCP 初始化失敗：{e}")
+            logging.warning("❌ MCP 初始化失敗：%s", str(e))
+        
+        await asyncio.sleep(RETRY_DELAY)
+
+    logging.error("💥 無法初始化 MCP server（多次重試失敗）")
 
 # Flutter 呼叫轉發端點
 @app.post("/rest-mcp")
