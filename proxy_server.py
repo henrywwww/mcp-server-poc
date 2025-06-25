@@ -80,9 +80,12 @@ async def rest_mcp(request: Request):
         payload = {
             "jsonrpc": "2.0",
             "id": "flutter-proxy",
-            "method": "hello_world",
+            "method": "tools/call",
             "params": {
+                "name": "hello_world",
+                "arguments": {
                 "name": "henry"
+                }
             }
         }
         headers = MCP_HEADERS.copy()
