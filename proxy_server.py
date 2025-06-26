@@ -4,8 +4,8 @@ import os
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastmcp import Client
-from fastmcp.types import BaseContent, ToolOutput
-print("FastMCP version:", fastmcp.__version__)
+from fastmcp.utilities.types import BaseContent, ToolOutput
+
 app = FastAPI()
 MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://localhost:9000/mcp/")
 
