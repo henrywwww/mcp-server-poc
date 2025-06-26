@@ -2,3 +2,5 @@ fastapi
 httpx
 uvicorn
 fastmcp
+pydantic==2.5.0
+python-multipart==0.0.6
