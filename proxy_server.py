@@ -1,55 +1,42 @@
 import os
 import logging
 from fastapi import FastAPI, Request
+from fastmcp import Client
 from fastapi.responses import JSONResponse
-from fastmcp.client import Client
-from fastmcp.prompts.prompt import TextContent
-from dotenv import load_dotenv
 
-load_dotenv()
-
-app = FastAPI()
+# 設定 Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("proxy-server")
 
+# FastAPI 應用
+app = FastAPI()
+
+# MCP Server 位置
 MCP_SERVER_URL = "http://localhost:9000/mcp/"
-client: Client | None = None
 
-# 初始化 FastMCP Client（使用 async factory）
-async def get_client() -> Client:
-    global client
-    if client is None:
-        logger.info(f"🚀 初始化 FastMCP Client，連線至：{MCP_SERVER_URL}")
-        client = await Client(MCP_SERVER_URL, transport="streamable-http")        
-    return client
+# 初始化 MCP Client（同步）
+def get_client():
+    logger.info(f"🚀 初始化 FastMCP Client，連線至：{MCP_SERVER_URL}")
+    return Client(transport="streamable-http", base_url=MCP_SERVER_URL)
 
+# /mcp-proxy endpoint
 @app.post("/mcp-proxy")
 async def mcp_proxy(request: Request):
     try:
-        logger.info("📥 收到 /mcp-proxy 請求")
         body = await request.json()
+        logger.info(f"📥 收到 /mcp-proxy 請求")
         logger.info(f"✅ request body = {body}")
 
         method = body.get("method")
         params = body.get("params", {})
 
-        cl = await get_client()
+        # 初始化 Client 並呼叫 MCP
+        cl = get_client()
+        result = await cl.call(method, params)
 
-        logger.info(f"📡 呼叫工具 {method} with {params}")
-        result = await cl.call(method=method, params=params)
-        logger.info(f"✅ MCP 回傳 = {result}")
-
-        # 將 TextContent / ComplexOutput 等物件轉成 dict
-        serialized_result = []
-        for item in result:
-            if hasattr(item, "model_dump"):
-                serialized_result.append(item.model_dump())
-            else:
-                serialized_result.append(item)
-
-        logger.info("📤 回傳 JSON 給 client")
-        return JSONResponse(content={"result": serialized_result})
+        logger.info(f"✅ 回傳結果：{result}")
+        return JSONResponse(content={"result": result})
 
     except Exception as e:
-        logger.exception(f"🔥 MCP proxy 錯誤：{e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        logger.error(f"🔥 MCP proxy 錯誤：{e}", exc_info=True)
+        return JSONResponse(content={"error": str(e)}, status_code=500)
