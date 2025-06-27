@@ -17,7 +17,7 @@ MCP_SERVER_URL = "http://localhost:9000/mcp/"
 # 初始化 MCP Client（同步）
 def get_client():
     logger.info(f"🚀 初始化 FastMCP Client，連線至：{MCP_SERVER_URL}")
-    return Client(transport="streamable-http", base_url=MCP_SERVER_URL)
+    return Client(MCP_SERVER_URL, transport="streamable-http")
 
 # /mcp-proxy endpoint
 @app.post("/mcp-proxy")
