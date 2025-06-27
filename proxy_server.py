@@ -13,14 +13,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("proxy-server")
 
 MCP_SERVER_URL = "http://localhost:9000/mcp/"
-client: MCPClient | None = None
+client: Client | None = None
 
 # 初始化 FastMCP Client（使用 async factory）
-async def get_client() -> MCPClient:
+async def get_client() -> Client:
     global client
     if client is None:
         logger.info(f"🚀 初始化 FastMCP Client，連線至：{MCP_SERVER_URL}")
-        client = await MCPClient.from_url(MCP_SERVER_URL)
+        client = await Client.from_url(MCP_SERVER_URL)
     return client
 
 @app.post("/mcp-proxy")
