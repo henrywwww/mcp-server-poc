@@ -1,16 +1,15 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastmcp.client import Client
-from fastmcp.utilities.types import BaseContent, ToolOutput
+from fastmcp.utilities.types import ToolOutput, TextContent
 import logging
 
 app = FastAPI()
 
-# 初始化 log 設定
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("proxy-server")
 
-MCP_SERVER_URL = "http://localhost:9000/mcp/"  # 改成你的 MCP URL
+MCP_SERVER_URL = "http://localhost:9000/mcp/"  # 請依實際修改
 
 @app.post("/mcp-proxy")
 async def mcp_proxy(request: Request):
@@ -31,19 +30,18 @@ async def mcp_proxy(request: Request):
         return JSONResponse(content={"error": "Missing method"}, status_code=400)
 
     try:
-        logger.info(f"🚀 初始化 fastmcp client，目標伺服器：{MCP_SERVER_URL}")
+        logger.info(f"🚀 初始化 fastmcp client，連線至：{MCP_SERVER_URL}")
         async with Client(MCP_SERVER_URL) as client:
-            logger.info(f"📡 呼叫 MCP 工具: {method}，參數: {params}")
+            logger.info(f"📡 呼叫工具 {method} with {params}")
             result = await client.call_tool(method, params)
-            logger.info(f"✅ MCP 回傳結果：{result}")
+            logger.info(f"✅ MCP 回傳：{result}")
 
-        # 處理回傳格式
-        if isinstance(result, (BaseContent, ToolOutput)):
-            logger.info("🛠 轉換 MCP 回傳結果為 dict")
+        if isinstance(result, (ToolOutput, TextContent)):
+            logger.info("🔄 回傳為 fastmcp 型別，執行 model_dump()")
             result = result.model_dump()
 
         return JSONResponse(content={"result": result})
 
     except Exception as e:
-        logger.exception(f"🔥 發生 proxy 錯誤：{e}")
+        logger.exception(f"🔥 MCP proxy 錯誤：{e}")
         return JSONResponse(content={"error": f"Proxy error: {str(e)}"}, status_code=500)
