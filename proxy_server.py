@@ -32,7 +32,8 @@ async def mcp_proxy(request: Request):
 
         # 初始化 Client 並呼叫 MCP
         cl = get_client()
-        result = await cl.call_tool(method, arguments=params)
+        async with cl:
+            result = await cl.call_tool(method, arguments=params)
 
         logger.info(f"✅ 回傳結果：{result}")
         return JSONResponse(content={"result": result})
