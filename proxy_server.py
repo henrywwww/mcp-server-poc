@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastmcp.client import Client
-from fastmcp.utilities.types import ToolOutput, TextContent
+from fastmcp.prompts.prompt import TextContent
 import logging
 
 app = FastAPI()
@@ -9,7 +9,7 @@ app = FastAPI()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("proxy-server")
 
-MCP_SERVER_URL = "http://localhost:9000/mcp/"  # 請依實際修改
+MCP_SERVER_URL = "http://localhost:9000/mcp/"  # 請視情況修改
 
 @app.post("/mcp-proxy")
 async def mcp_proxy(request: Request):
@@ -36,8 +36,9 @@ async def mcp_proxy(request: Request):
             result = await client.call_tool(method, params)
             logger.info(f"✅ MCP 回傳：{result}")
 
-        if isinstance(result, (ToolOutput, TextContent)):
-            logger.info("🔄 回傳為 fastmcp 型別，執行 model_dump()")
+        # 如果是 TextContent 就轉 dict 回傳
+        if isinstance(result, TextContent):
+            logger.info("🔄 MCP 回傳為 TextContent，執行 model_dump()")
             result = result.model_dump()
 
         return JSONResponse(content={"result": result})
