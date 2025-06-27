@@ -17,7 +17,7 @@ async def get_client() -> Client:
     global client
     if client is None:
         logger.info(f"🚀 初始化 FastMCP Client，連線至：{MCP_SERVER_URL}")
-        client = Client(base_url=MCP_SERVER_URL)
+        client = Client(base_url=MCP_SERVER_URL, transport="streamable-http")
         await client.__aenter__()
     return client
 
