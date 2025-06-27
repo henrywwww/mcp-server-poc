@@ -20,7 +20,7 @@ async def get_client() -> Client:
     global client
     if client is None:
         logger.info(f"🚀 初始化 FastMCP Client，連線至：{MCP_SERVER_URL}")
-        client = await Client.from_url(MCP_SERVER_URL)
+        client = await Client(MCP_SERVER_URL, transport="streamable-http")        
     return client
 
 @app.post("/mcp-proxy")
