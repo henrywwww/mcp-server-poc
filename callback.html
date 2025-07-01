@@ -14,10 +14,10 @@
         window.opener.postMessage("login-success", "*");
         window.close();
       } else {
-        location.href = "https://your-github-username.github.io/login-callback-demo/login.html";
+        alert("no window.opener");
       }
     } catch (e) {
-      location.href = "https://your-github-username.github.io/login-callback-demo/login.html";
+        alert(e.message);
     }
   </script>
 </body>
