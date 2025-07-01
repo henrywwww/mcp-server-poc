@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>回傳頁 - callback.html</title>
+</head>
+<body>
+  <h1>登入成功</h1>
+  <p>正在通知原視窗並關閉此頁...</p>
+
+  <script>
+    try {
+      if (window.opener) {
+        window.opener.postMessage("login-success", "*");
+        window.close();
+      } else {
+        alert("no window.opener");
+        window.close();
+      }
+    } catch (e) {
+        alert(e.message);
+        window.close();
+    }
+  </script>
+</body>
+</html>
