@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>登入頁 - login.html</title>
+</head>
+<body>
+  <h1>模擬登入頁面</h1>
+  <p>點擊下方按鈕 → 開啟 App（模擬）</p>
+
+  <button onclick="openApp()">以 App 登入</button>
+
+  <script>
+    function openApp() {
+      const callbackUrl = encodeURIComponent("https://your-github-username.github.io/login-callback-demo/callback.html");
+      // 實際專案中應該是 universal link / intent link
+      const fakeAppLink = `https://your-github-username.github.io/login-callback-demo/callback.html`; // 模擬從 App 回傳的網址
+      window.open(fakeAppLink, "_blank");
+    }
+
+    window.addEventListener("message", function (event) {
+      if (event.data === "login-success") {
+        alert("✅ 登入成功！可以關閉登入按鈕或導向首頁");
+      }
+    });
+  </script>
+</body>
+</html>
